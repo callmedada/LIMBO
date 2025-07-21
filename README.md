@@ -1,6 +1,6 @@
 # LIMBO: Information-Theoretic Agglomerative Clustering for Categorical Data
 
-LIMBO is a Python package for Limbo Paper: 
+LIMBO is a Python implementation for Limbo Paper: 
 [LIMBO: Scalable Clustering of Categorical Data](https://link.springer.com/chapter/10.1007/978-3-540-24741-8_9)
 
 It supports both dense and sparse (scipy) vectorization, multi-threaded prediction, and robust handling of edge cases. 
