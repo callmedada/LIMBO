@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "limbo_cluster"
+version = "0.1.0"
+description = "LIMBO-style agglomerative clustering for categorical data"
+authors = [{ name = "ChengDa Zheng", email = "Chengda.zheng@mail.utoronto.ca" }]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = ["numpy>=1.23", "scipy>=1.11"]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
