@@ -88,7 +88,7 @@ LimboAgglomerative(
 
 Run all tests (requires `pytest`):
 ```bash
-pytest src/limbo_cluster/test_limbo_cluster.py -v
+PYTHONPATH=src pytest tests/ -v
 ```
 
 ## License
