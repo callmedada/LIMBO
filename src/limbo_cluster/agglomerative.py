@@ -17,6 +17,7 @@ class LimboAgglomerative:
         self.labels_: List[int] | None = None
         self.clusters_: List[DCF] | None = None
         self._id2attr: Dict[int, str] | None = None
+        self._linkage_matrix = None  # 新增：记录聚类树
 
     def fit(self, records: List[Dict[str, str]]):
         if not records:
@@ -30,6 +31,9 @@ class LimboAgglomerative:
             dist = {idx: prob for idx in enc}
             dcfs.append(DCF(1.0 / n, dist))
 
+        # linkage matrix 记录
+        linkage = []
+        cluster_sizes = [1] * n
         # priority queue of pairwise JS distances
         heap: List[Tuple[float, int, int]] = []
         for i in range(n):
@@ -46,12 +50,14 @@ class LimboAgglomerative:
                 x = parent[x]
             return x
 
+        next_cluster_id = n
         while len(active) > self.n_clusters and heap:
             d, i, j = heapq.heappop(heap)
             i = find(i)
             j = find(j)
             if i == j:
                 continue
+            # merge i and j -> k
             k = len(dcfs)
             dcfs.append(dcfs[i].merge(dcfs[j]))
             parent.append(k)
@@ -59,6 +65,10 @@ class LimboAgglomerative:
             active.discard(i)
             active.discard(j)
             active.add(k)
+            # linkage matrix: [i, j, 距离, 新簇样本数]
+            size = cluster_sizes[i] + cluster_sizes[j]
+            linkage.append([i, j, d, size])
+            cluster_sizes.append(size)
             # push new distances
             for a in active:
                 if a == k:
@@ -75,6 +85,8 @@ class LimboAgglomerative:
             labels.append(cluster_map[root])
         self.labels_ = labels
         self.clusters_ = [dcfs[cid] for cid in active]
+        # linkage matrix 只保留 n-1 行（标准格式）
+        self._linkage_matrix = np.array(linkage, dtype=float) if linkage else None
         return self
 
     def cluster_profiles(self) -> List[Dict[str, float]]:
@@ -136,3 +148,7 @@ class LimboAgglomerative:
         C = DCF.batch_to_sparse(clusters, vocab_size)
         D = DCF.js_sparse_batch(X, C)
         return list(np.argmin(D, axis=1))
+
+    def get_linkage_matrix(self):
+        """返回 scipy dendrogram 可用的 linkage matrix (n-1, 4)"""
+        return self._linkage_matrix
