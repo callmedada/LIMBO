@@ -4,6 +4,12 @@ from typing import Dict, List, Tuple, Any
 import numpy as np
 from .dcf import DCF
 from .utils import encode_records
+try:
+    # 可选：简易进度条
+    from tqdm.auto import tqdm  # type: ignore
+except Exception:  # pragma: no cover
+    def tqdm(x, **kwargs):  # type: ignore
+        return x
 from concurrent.futures import ThreadPoolExecutor
 
 class LimboAgglomerative:
@@ -23,6 +29,15 @@ class LimboAgglomerative:
     def fit(self, records: List[Dict[str, str]]):
         if not records:
             raise ValueError("fit input cannot be empty")
+        def _log(msg: str) -> None:
+            try:
+                tqdm.write(msg)
+            except Exception:
+                try:
+                    print(msg, flush=True)
+                except Exception:
+                    pass
+        _log(f"[LimboAgglomerative.fit] start n={len(records)}, k={self.n_clusters}, use_sparse={self.use_sparse}, tau={self.tau}")
         encoded, _, id2attr = encode_records(records)
         self._id2attr = id2attr
         n = len(records)
@@ -37,10 +52,16 @@ class LimboAgglomerative:
         cluster_sizes = [1] * n
         # priority queue of pairwise JS distances
         heap: List[Tuple[float, int, int]] = []
+        total_pairs = n * (n - 1) // 2
+        _log(f"[LimboAgglomerative.fit] building heap for {total_pairs} pairs")
+        pairs_bar = tqdm(total=total_pairs, desc="pairwise JS", leave=False)
         for i in range(n):
             for j in range(i + 1, n):
                 d = dcfs[i].js(dcfs[j])
                 heapq.heappush(heap, (d, i, j))
+            # 本轮完成 (n - i - 1) 个 pair
+            pairs_bar.update(n - i - 1)
+        pairs_bar.close()
 
         active = set(range(n))
         parent = list(range(n))
@@ -52,6 +73,10 @@ class LimboAgglomerative:
             return x
 
         next_cluster_id = n
+        _log(f"[LimboAgglomerative.fit] start merges with active={len(active)}, heap={len(heap)}")
+        merges = 0
+        merges_needed = max(0, len(active) - self.n_clusters)
+        merges_bar = tqdm(total=merges_needed, desc="merges", leave=False)
         while len(active) > self.n_clusters and heap:
             d, i, j = heapq.heappop(heap)
             i = find(i)
@@ -59,6 +84,8 @@ class LimboAgglomerative:
             if i == j:
                 continue
             if self.tau is not None and d > self.tau:
+                _log(f"[LimboAgglomerative.fit] stop by tau: d={d:.6f} > tau={self.tau}")
+                merges_bar.close()
                 break
             # merge i and j -> k
             k = len(dcfs)
@@ -79,6 +106,8 @@ class LimboAgglomerative:
                 hk, ha = (k, a) if k < a else (a, k)
                 dist = dcfs[hk].js(dcfs[ha])
                 heapq.heappush(heap, (dist, hk, ha))
+            merges += 1
+            merges_bar.update(1)
 
         # assign labels
         cluster_map = {cid: idx for idx, cid in enumerate(active)}
@@ -101,6 +130,11 @@ class LimboAgglomerative:
             act.append(cur_id)
             cur_id += 1
         self._linkage_matrix = np.array(linkage, dtype=float) if linkage else None
+        try:
+            merges_bar.close()
+        except Exception:
+            pass
+        _log(f"[LimboAgglomerative.fit] done: clusters={len(active)}, merges={merges}")
         return self
 
     def cluster_profiles(self) -> List[Dict[str, float]]:

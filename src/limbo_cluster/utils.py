@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Dict, List
+from typing import Iterable
 
 def encode_records(records: List[Dict[str, str]]):
     """Return (encoded_records, attr2id, id2attr)."""
@@ -14,6 +15,27 @@ def encode_records(records: List[Dict[str, str]]):
         encoded.append(out)
     id2attr = {i: s for s, i in attr2id.items()}
     return encoded, attr2id, id2attr
+
+def dataframe_to_records(df, *, feature_cols: Iterable[str]) -> List[Dict[str, str]]:
+    """将 DataFrame 转为 LIMBO 需要的 records: List[Dict[str,str]]。
+    仅使用 `feature_cols` 中的列，按字符串类型编码；缺失值跳过。
+    """
+    records: List[Dict[str, str]] = []
+    cols = list(feature_cols)
+    for _, row in df.iterrows():
+        rec: Dict[str, str] = {}
+        for c in cols:
+            if c not in df.columns:
+                continue
+            v = row[c]
+            if v is None:
+                continue
+            s = str(v)
+            if s == "nan":
+                continue
+            rec[c] = s
+        records.append(rec)
+    return records
 
 def record_to_distribution(record: Dict[str, str], attr_to_id: Dict[str, int]) -> Dict[int, float]:
     prob = 1.0 / len(record)
