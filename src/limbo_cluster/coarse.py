@@ -69,7 +69,11 @@ class MiniBatchKSDivergence:
     @staticmethod
     def _dense_rows(X, indices) -> np.ndarray:
         if sparse is not None and sparse.issparse(X):
-            return X[indices].toarray()
+            try:
+                to_slice = X if X.getformat() == "csr" else X.tocsr(copy=False)
+            except Exception:
+                to_slice = X.tocsr(copy=False)
+            return to_slice[indices].toarray()
         return np.asarray(X[indices], dtype=float).copy()
 
     def _init_centers(self, X, rng: np.random.Generator) -> np.ndarray:
